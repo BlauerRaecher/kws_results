@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KWS on Embedded Hardware — Results</title>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+<style>
+:root {
+  --bg0: #0d1117;
+  --bg1: #161b22;
+  --bg2: #21262d;
+  --border: #30363d;
+  --text1: #e6edf3;
+  --text2: #8b949e;
+  --text3: #6e7681;
+  --blue: #58a6ff;
+  --green: #3fb950;
+  --amber: #d29922;
+  --red: #f85149;
+  --purple: #bc8cff;
+  --cyan: #39d353;
+  --accent: #58a6ff;
+  --r: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg0);
+  color: var(--text1);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(13,17,23,0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 52px;
+}
+.nav-logo { font-weight: 700; font-size: 15px; color: var(--text1); display: flex; align-items: center; gap: 8px; }
+.nav-logo span { color: var(--blue); }
+.nav-links { display: flex; gap: 24px; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 13px; transition: color .15s; }
+.nav-links a:hover { color: var(--text1); }
+
+/* ── HERO ── */
+.hero {
+  padding: 72px 32px 56px;
+  max-width: 960px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center;
+}
+.hero-text h1 { font-size: 32px; font-weight: 800; line-height: 1.2; margin-bottom: 16px; letter-spacing: -0.5px; }
+.hero-text h1 em { font-style: normal; color: var(--blue); }
+.hero-text p { color: var(--text2); font-size: 15px; line-height: 1.7; margin-bottom: 12px; }
+.hero-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.pill {
+  border: 1px solid var(--border); border-radius: 99px;
+  padding: 3px 12px; font-size: 12px; color: var(--text2);
+  background: var(--bg1);
+}
+.pill.highlight { border-color: var(--blue); color: var(--blue); background: rgba(88,166,255,.08); }
+
+.hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-card {
+  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 16px; text-align: center;
+}
+.stat-val { font-size: 26px; font-weight: 700; color: var(--blue); }
+.stat-label { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+/* ── SECTIONS ── */
+.section { max-width: 960px; margin: 0 auto; padding: 48px 32px; }
+.section-header { margin-bottom: 24px; }
+.section-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.section-sub { color: var(--text2); font-size: 14px; }
+
+/* ── TOGGLES ── */
+.toggle-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.toggle-group { display: flex; background: var(--bg1); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.toggle-btn {
+  padding: 6px 16px; font-size: 12px; font-weight: 600; cursor: pointer;
+  border: none; background: transparent; color: var(--text2); transition: all .15s;
+}
+.toggle-btn.active { background: var(--blue); color: #0d1117; }
+.toggle-label { font-size: 12px; color: var(--text3); align-self: center; }
+
+/* ── BENCHMARK GRID ── */
+.bench-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.model-card {
+  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 16px; position: relative; transition: border-color .2s;
+}
+.model-card.recommended { border-color: var(--green); }
+.rec-badge {
+  position: absolute; top: -1px; right: 12px;
+  background: var(--green); color: #0d1117;
+  font-size: 9px; font-weight: 800; letter-spacing: .05em;
+  padding: 2px 8px; border-radius: 0 0 5px 5px; text-transform: uppercase;
+}
+.model-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.model-sub { font-size: 11px; color: var(--text2); margin-bottom: 14px; }
+.metric-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.metric-key { font-size: 11px; color: var(--text2); }
+.metric-val { font-size: 12px; font-weight: 600; }
+.metric-val.good { color: var(--green); }
+.metric-val.ok { color: var(--amber); }
+.metric-val.bad { color: var(--red); }
+.metric-val.neutral { color: var(--text1); }
+.lat-bar-wrap { margin: 12px 0 8px; }
+.lat-bar-track { background: var(--bg2); border-radius: 3px; height: 6px; overflow: hidden; }
+.lat-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+.lat-bar-label { font-size: 10px; color: var(--text3); margin-top: 3px; }
+.acc-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* ── LATENCY DISTRIBUTION ── */
+.dist-chart { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 24px; }
+.dist-row { margin-bottom: 16px; }
+.dist-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.dist-model-name { font-size: 12px; font-weight: 600; }
+.dist-stat { font-size: 11px; color: var(--text2); }
+.dist-track { position: relative; height: 20px; background: var(--bg2); border-radius: 4px; }
+.dist-segment { position: absolute; top: 0; height: 100%; border-radius: 4px; }
+.dist-whisker { position: absolute; top: 6px; height: 8px; border-right: 2px solid; }
+.dist-tick { position: absolute; top: -18px; font-size: 9px; color: var(--text3); transform: translateX(-50%); }
+.dist-axis { position: relative; height: 20px; margin-top: 4px; border-top: 1px solid var(--border); }
+.dist-legend { display: flex; gap: 16px; margin-top: 16px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+.dist-500-line { position: absolute; top: 0; height: 100%; border-right: 2px dashed var(--red); opacity: .5; }
+.dist-500-label { position: absolute; top: -18px; font-size: 9px; color: var(--red); transform: translateX(-50%); }
+
+/* ── TRAINING CHART ── */
+.train-container { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 24px; }
+.train-canvas-wrap { position: relative; }
+canvas#trainChart { width: 100%; height: 300px; display: block; }
+.train-controls { display: flex; align-items: center; gap: 16px; margin-top: 16px; flex-wrap: wrap; }
+.play-btn {
+  background: var(--blue); color: #0d1117; border: none; border-radius: 6px;
+  padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: opacity .15s;
+}
+.play-btn:hover { opacity: .85; }
+.epoch-display { font-size: 13px; color: var(--text2); }
+input[type=range] {
+  flex: 1; min-width: 120px;
+  accent-color: var(--blue);
+}
+.train-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+.train-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.train-legend-dot { width: 12px; height: 3px; border-radius: 2px; }
+
+/* ── MODEL SELECTOR ── */
+.selector-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.selector-panel { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+.selector-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+.slider-group { margin-bottom: 20px; }
+.slider-label { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.slider-name { font-size: 12px; color: var(--text2); }
+.slider-val { font-size: 12px; font-weight: 600; color: var(--blue); }
+.rec-card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px; margin-top: 4px;
+}
+.rec-model { font-size: 18px; font-weight: 800; color: var(--green); margin-bottom: 6px; }
+.rec-details { font-size: 12px; color: var(--text2); line-height: 1.7; }
+.rec-warn { font-size: 11px; color: var(--amber); margin-top: 8px; padding: 8px; background: rgba(210,153,34,.1); border-radius: 4px; }
+.rec-impossible { color: var(--red); font-size: 13px; }
+
+/* ── FINDINGS ── */
+.findings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.finding-card {
+  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r);
+  padding: 16px;
+}
+.finding-icon { font-size: 20px; margin-bottom: 8px; }
+.finding-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.finding-text { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); padding: 32px;
+  text-align: center; color: var(--text3); font-size: 12px; margin-top: 48px;
+}
+footer a { color: var(--text2); text-decoration: none; }
+footer a:hover { color: var(--text1); }
+.sep { margin: 0 8px; }
+
+/* ── DEMO ── */
+.demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.demo-panel { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+.demo-status-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2); padding: 4px 12px;
+  background: var(--bg1); border-radius: 99px; border: 1px solid var(--border);
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
+.status-dot.green { background: var(--green); }
+.status-dot.red { background: var(--red); animation: pulse 1s infinite; }
+.status-dot.amber { background: var(--amber); }
+.model-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.model-sel-btn {
+  padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: transparent; color: var(--text2); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.model-sel-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(88,166,255,.1); }
+.record-btn {
+  width: 100%; padding: 13px; border-radius: 8px; border: none;
+  background: var(--red); color: #fff; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: opacity .15s; margin-bottom: 12px;
+}
+.record-btn:disabled { opacity: .5; cursor: not-allowed; }
+.record-btn.recording { animation: pulse 1s infinite; }
+.countdown { text-align: center; font-size: 11px; color: var(--text2); height: 16px; margin-bottom: 10px; }
+.canvas-label { font-size: 11px; color: var(--text3); margin: 10px 0 4px; }
+canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background: var(--bg2); }
+.top-pred { text-align: center; padding: 16px 0 8px; }
+.top-pred-word { font-size: 32px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; }
+.top-pred-conf { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.pred-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.pred-lbl { font-size: 11px; color: var(--text2); min-width: 70px; text-align: right; font-family: monospace; }
+.pred-track { flex: 1; background: var(--bg2); border-radius: 3px; height: 18px; overflow: hidden; position: relative; }
+.pred-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; font-size: 10px; font-weight: 700; color: #0d1117; transition: width .4s ease; min-width: 4px; }
+.pred-pct { font-size: 11px; color: var(--text2); min-width: 38px; }
+.demo-hint { font-size: 11px; color: var(--text3); line-height: 1.6; margin-top: 12px; padding: 10px; background: var(--bg2); border-radius: 6px; }
+.keywords-list { font-size: 10px; color: var(--text3); line-height: 1.7; margin-top: 6px; font-family: monospace; }
+
+/* ── DOWNLOADS ── */
+.dl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.dl-card { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
+.dl-model { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+.dl-info { font-size: 11px; color: var(--text2); margin-bottom: 12px; line-height: 1.7; }
+.dl-btn {
+  display: block; width: 100%; padding: 7px 0; text-align: center;
+  border: 1px solid var(--border); border-radius: 6px; text-decoration: none;
+  font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 6px;
+  transition: all .15s; cursor: pointer;
+}
+.dl-btn:hover { border-color: var(--blue); color: var(--blue); }
+.dl-btn.primary { border-color: var(--blue); color: var(--blue); }
+
+/* ── UTIL ── */
+.divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+@media (max-width: 700px) {
+  .bench-grid { grid-template-columns: 1fr 1fr; }
+  .hero { grid-template-columns: 1fr; gap: 24px; }
+  .selector-grid { grid-template-columns: 1fr; }
+  .findings-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">KWS<span>·</span>Results</div>
+  <div class="nav-links">
+    <a href="#benchmark">Benchmark</a>
+    <a href="#latency">Latency</a>
+    <a href="#training">Training</a>
+    <a href="#selector">Selector</a>
+    <a href="#findings">Findings</a>
+    <a href="#demo" style="color:var(--red);font-weight:700">🎙 Live Demo</a>
+    <a href="#downloads">Downloads</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-text">
+    <h1>Keyword Spotting on<br><em>Embedded Hardware</em></h1>
+    <p>
+      This page presents results from a bachelor's thesis investigating whether a complete keyword spotting pipeline —
+      training on consumer GPU, deployment on ARM — can be built with standard PyTorch only.
+    </p>
+    <p>
+      Four neural architectures (CNN, ResNet, DS-CNN, BC-ResNet) were trained on the full 36-class
+      Google Speech Commands dataset and benchmarked on two Raspberry Pi boards across five independent runs each.
+    </p>
+    <div class="hero-pills">
+      <span class="pill">4 architectures</span>
+      <span class="pill">2 platforms</span>
+      <span class="pill">FP32 &amp; INT8</span>
+      <span class="pill">5 runs · 958 samples/run</span>
+      <span class="pill highlight">PyTorch / ROCm · AMD RX 6800</span>
+    </div>
+  </div>
+  <div class="hero-stats">
+    <div class="stat-card">
+      <div class="stat-val">12.95<span style="font-size:14px;color:var(--text2)"> ms</span></div>
+      <div class="stat-label">Best inference (ResNet, Pi 4B)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">95.6<span style="font-size:14px;color:var(--text2)">%</span></div>
+      <div class="stat-label">Peak accuracy (DS-CNN)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">500<span style="font-size:14px;color:var(--text2)"> ms</span></div>
+      <div class="stat-label">Real-time budget — all models pass</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">30k<span style="font-size:14px;color:var(--text2)"> p</span></div>
+      <div class="stat-label">Smallest model (BC-ResNet)</div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- BENCHMARK -->
+<div class="section" id="benchmark">
+  <div class="section-header">
+    <div class="section-title">Benchmark Dashboard</div>
+    <div class="section-sub">Average inference latency across 5 runs · 958 samples each · inference forward pass only (preprocessing excluded)</div>
+  </div>
+  <div class="toggle-row">
+    <div class="toggle-group" id="platformToggle">
+      <button class="toggle-btn active" onclick="setPlatform('pi4')">Raspberry Pi 4B</button>
+      <button class="toggle-btn" onclick="setPlatform('pi_zero')">Pi Zero 2W</button>
+    </div>
+    <div class="toggle-group" id="precToggle">
+      <button class="toggle-btn active" onclick="setPrec('fp32')">FP32</button>
+      <button class="toggle-btn" onclick="setPrec('int8')">INT8</button>
+    </div>
+    <span class="toggle-label">500 ms = real-time budget</span>
+  </div>
+  <div class="bench-grid" id="benchGrid"></div>
+</div>
+
+<hr class="divider">
+
+<!-- LATENCY DISTRIBUTION -->
+<div class="section" id="latency">
+  <div class="section-header">
+    <div class="section-title">Latency Distribution</div>
+    <div class="section-sub">
+      Shows median (p50), 95th percentile (p95), and worst-case (max) across all 5 × 958 samples.
+      Tail outliers are the key differentiator on Pi Zero 2W.
+    </div>
+  </div>
+  <div class="toggle-row">
+    <div class="toggle-group" id="distPlatformToggle">
+      <button class="toggle-btn active" onclick="setDistPlatform('pi4')">Pi 4B</button>
+      <button class="toggle-btn" onclick="setDistPlatform('pi_zero')">Pi Zero 2W</button>
+    </div>
+    <div class="toggle-group" id="distPrecToggle">
+      <button class="toggle-btn active" onclick="setDistPrec('fp32')">FP32</button>
+      <button class="toggle-btn" onclick="setDistPrec('int8')">INT8</button>
+    </div>
+  </div>
+  <div class="dist-chart" id="distChart"></div>
+</div>
+
+<hr class="divider">
+
+<!-- TRAINING -->
+<div class="section" id="training">
+  <div class="section-header">
+    <div class="section-title">Training Curves</div>
+    <div class="section-sub">Validation accuracy per epoch · AMD RX 6800 (PyTorch/ROCm) · 36-class Google Speech Commands · cosine LR schedule</div>
+  </div>
+  <div class="train-container">
+    <div class="train-canvas-wrap">
+      <canvas id="trainChart"></canvas>
+    </div>
+    <div class="train-legend" id="trainLegend"></div>
+    <div class="train-controls">
+      <button class="play-btn" id="playBtn" onclick="togglePlay()">▶ Play</button>
+      <input type="range" id="epochSlider" min="1" max="60" value="60" oninput="setEpoch(+this.value)">
+      <span class="epoch-display" id="epochDisplay">Epoch 60 / 60</span>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- SELECTOR -->
+<div class="section" id="selector">
+  <div class="section-header">
+    <div class="section-title">Model Selector</div>
+    <div class="section-sub">Set your deployment constraints — the tool applies the thesis findings to give a recommendation.</div>
+  </div>
+  <div class="selector-grid">
+    <div class="selector-panel">
+      <div class="selector-title">Your Constraints</div>
+      <div class="slider-group">
+        <div class="slider-label">
+          <span class="slider-name">Target Hardware</span>
+        </div>
+        <div class="toggle-group" id="selPlatformToggle" style="margin-bottom:8px">
+          <button class="toggle-btn active" onclick="setSelPlatform('pi4')">Pi 4B</button>
+          <button class="toggle-btn" onclick="setSelPlatform('pi_zero')">Pi Zero 2W</button>
+        </div>
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">
+          <span class="slider-name">Max. latency budget</span>
+          <span class="slider-val" id="latBudgetVal">50 ms</span>
+        </div>
+        <input type="range" id="latBudget" min="10" max="200" value="50" oninput="updateSelector()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">
+          <span class="slider-name">Min. accuracy</span>
+          <span class="slider-val" id="accThreshVal">90 %</span>
+        </div>
+        <input type="range" id="accThresh" min="70" max="96" value="90" step="0.5" oninput="updateSelector()">
+      </div>
+      <div class="slider-group">
+        <div class="slider-label">
+          <span class="slider-name">Precision</span>
+        </div>
+        <div class="toggle-group" id="selPrecToggle">
+          <button class="toggle-btn active" onclick="setSelPrec('fp32')">FP32</button>
+          <button class="toggle-btn" onclick="setSelPrec('int8')">INT8</button>
+          <button class="toggle-btn" onclick="setSelPrec('any')">Best fit</button>
+        </div>
+      </div>
+    </div>
+    <div class="selector-panel">
+      <div class="selector-title">Recommendation</div>
+      <div class="rec-card" id="recCard"></div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- KEY FINDINGS -->
+<div class="section" id="findings">
+  <div class="section-header">
+    <div class="section-title">Key Findings</div>
+    <div class="section-sub">The central conclusions from the thesis.</div>
+  </div>
+  <div class="findings-grid">
+    <div class="finding-card">
+      <div class="finding-icon">📐</div>
+      <div class="finding-title">Parameter–Latency Paradox</div>
+      <div class="finding-text">
+        BC-ResNet has <strong>only 30k parameters</strong> (vs. 112k for ResNet) yet runs
+        <strong>3.3× slower</strong> on Pi Zero. Reason: 43 sequential layers create
+        per-layer dispatch overhead in PyTorch's eager mode that dwarfs actual compute time.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-icon">⚡</div>
+      <div class="finding-title">INT8 Null Effect</div>
+      <div class="finding-text">
+        Dynamic INT8 quantization delivers <strong>no speed gains</strong> on any ARM platform.
+        All models fit in L2 cache (0.12–0.71 MB), so the dequantization overhead eats the bandwidth
+        advantage. The <em>only</em> benefit: INT8 suppresses ResNet tail outliers on Pi Zero.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-icon">🌡️</div>
+      <div class="finding-title">Thermal Stability</div>
+      <div class="finding-text">
+        On Pi Zero 2W, DS-CNN and BC-ResNet both hit <strong>&gt;81°C</strong> peak temperature
+        under INT8, approaching the throttle threshold. ResNet INT8 stays at 74°C — the only
+        thermally safe, latency-stable configuration on the constrained platform.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-icon">🎯</div>
+      <div class="finding-title">Platform Transfer Effect</div>
+      <div class="finding-text">
+        On Pi 4B, all four models comfortably meet the 500ms real-time requirement, making
+        architecture choice secondary. The ranking <strong>inverts on Pi Zero 2W</strong>:
+        only layer count — not parameter count or MACs — predicts latency stability.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-icon">📊</div>
+      <div class="finding-title">Accuracy Convergence</div>
+      <div class="finding-text">
+        CNN, ResNet, DS-CNN and BC-ResNet all converge to the <strong>same accuracy tier
+        (~94–95%)</strong> on the harder 36-class task. Only CNN falls back to 87%.
+        The tiny gaps between top models lie within the 95% CI for n=958 — not statistically reliable.
+      </div>
+    </div>
+    <div class="finding-card">
+      <div class="finding-icon">🔩</div>
+      <div class="finding-title">Framework is the Bottleneck</div>
+      <div class="finding-text">
+        The main finding is as much a <strong>framework finding as an architecture finding</strong>.
+        PyTorch eager-mode on Linux/ARM adds per-layer overhead that scales with layer count.
+        For production use, TFLite or ONNX Runtime (or CMSIS-NN on Cortex-M) are the next step.
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- LIVE DEMO -->
+<div class="section" id="demo">
+  <div class="section-header">
+    <div class="section-title">🎙 Live Demo</div>
+    <div class="section-sub">Record a keyword — the real trained model runs entirely in your browser via ONNX Runtime Web. No audio is ever sent to a server.</div>
+  </div>
+  <div class="demo-status-row">
+    <div class="status-badge"><div class="status-dot amber" id="modelDot"></div><span id="modelStatusText">Select a model to load</span></div>
+    <div class="status-badge"><div class="status-dot green"></div>100% local · WebAssembly · no network</div>
+  </div>
+  <div class="demo-grid">
+    <div class="demo-panel">
+      <div class="selector-title" style="margin-bottom:12px">Select model &amp; record</div>
+      <div class="model-btns" id="demoModelBtns">
+        <button class="model-sel-btn active" onclick="selectDemoModel('resnet')">ResNet <span style="font-size:10px;opacity:.6">recommended</span></button>
+        <button class="model-sel-btn" onclick="selectDemoModel('cnn')">CNN</button>
+        <button class="model-sel-btn" onclick="selectDemoModel('ds-cnn')">DS-CNN</button>
+        <button class="model-sel-btn" onclick="selectDemoModel('bc-resnet')">BC-ResNet</button>
+      </div>
+      <button class="record-btn" id="recordBtn" onclick="doRecord()">🎤 Hold to record keyword (1 s)</button>
+      <div class="countdown" id="countdown"></div>
+      <div class="canvas-label">Waveform</div>
+      <canvas class="demo-canvas" id="waveCanvas" height="60"></canvas>
+      <div class="canvas-label">MFCC features (40 × 101)</div>
+      <canvas class="demo-canvas" id="mfccCanvas" height="80"></canvas>
+      <div class="demo-hint">
+        Speak one of the 36 supported keywords clearly, ~0.5–1 s after clicking.
+        <div class="keywords-list">yes · no · up · down · left · right · on · off · stop · go · zero · one · two · three · four · five · six · seven · eight · nine · bed · bird · cat · dog · happy · house · marvin · sheila · tree · wow · backward · forward · follow · learn · visual · silence</div>
+      </div>
+    </div>
+    <div class="demo-panel">
+      <div class="selector-title" style="margin-bottom:12px">Prediction</div>
+      <div class="top-pred" id="topPred">
+        <div class="top-pred-word" style="color:var(--text3);font-size:18px">—</div>
+        <div class="top-pred-conf">Record a keyword to start</div>
+      </div>
+      <div id="predBars"></div>
+      <div style="margin-top:16px;font-size:11px;color:var(--text3)">
+        Top-5 · softmax probabilities · inference via ONNX Runtime WebAssembly
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DOWNLOADS -->
+<div class="section" id="downloads">
+  <div class="section-header">
+    <div class="section-title">Downloads</div>
+    <div class="section-sub">All trained model weights — ONNX for cross-framework deployment, PyTorch .pt for fine-tuning or further research.</div>
+  </div>
+  <div class="dl-grid">
+    <div class="dl-card">
+      <div class="dl-model" style="color:var(--blue)">ResNet</div>
+      <div class="dl-info">112k params · 17 layers<br>FP32: 12.95 ms on Pi 4B<br>INT8: 29.78 ms on Pi Zero<br><strong style="color:var(--green)">✓ Thesis recommendation</strong></div>
+      <a class="dl-btn primary" href="models/resnet.onnx" download>↓ ONNX (464 KB)</a>
+      <a class="dl-btn" href="models/resnet.pt" download>↓ PyTorch .pt (1.3 MB)</a>
+    </div>
+    <div class="dl-card">
+      <div class="dl-model" style="color:var(--green)">DS-CNN</div>
+      <div class="dl-info">142k params · 22 layers<br>FP32: 32.17 ms on Pi 4B<br>Acc: 94.47 % · 36 classes</div>
+      <a class="dl-btn primary" href="models/ds-cnn.onnx" download>↓ ONNX (579 KB)</a>
+      <a class="dl-btn" href="models/ds-cnn.pt" download>↓ PyTorch .pt (1.7 MB)</a>
+    </div>
+    <div class="dl-card">
+      <div class="dl-model" style="color:var(--amber)">CNN</div>
+      <div class="dl-info">185k params · 9 layers<br>FP32: 15.97 ms on Pi 4B<br>Acc: 87.16 % — lowest accuracy</div>
+      <a class="dl-btn primary" href="models/cnn.onnx" download>↓ ONNX (737 KB)</a>
+      <a class="dl-btn" href="models/cnn.pt" download>↓ PyTorch .pt (2.1 MB)</a>
+    </div>
+    <div class="dl-card">
+      <div class="dl-model" style="color:var(--purple)">BC-ResNet</div>
+      <div class="dl-info">30k params · 43 layers<br>FP32: 44.70 ms on Pi 4B<br>Acc: 94.78 % — highest accuracy</div>
+      <a class="dl-btn primary" href="models/bc-resnet.onnx" download>↓ ONNX (426 KB)</a>
+      <a class="dl-btn" href="models/bc-resnet.pt" download>↓ PyTorch .pt (560 KB)</a>
+    </div>
+  </div>
+  <div style="margin-top:14px;font-size:11px;color:var(--text3);line-height:1.8">
+    ONNX models exported with opset 18. Input: <code style="background:var(--bg2);padding:1px 5px;border-radius:3px">float32[batch, 40, 101]</code> (MFCC, 40 coefficients × 101 time frames at 16 kHz / 10 ms hop).
+    Output: <code style="background:var(--bg2);padding:1px 5px;border-radius:3px">float32[batch, 36]</code> logits.
+    Training: PyTorch/ROCm on AMD RX 6800 · Dataset: Google Speech Commands v2 · 36 classes.
+  </div>
+</div>
+
+<footer>
+  Bachelor's thesis · DHBW · 2026
+  <span class="sep">·</span>
+  4 architectures benchmarked across 5 × 958-sample runs on Raspberry Pi hardware
+  <span class="sep">·</span>
+  Training: PyTorch/ROCm on AMD RX 6800
+  <span class="sep">·</span>
+  Dataset: <a href="#">Google Speech Commands v2 (36 classes)</a>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════
+const MODELS = ['ResNet', 'DS-CNN', 'CNN', 'BC-ResNet'];
+const MODEL_COLORS = { 'ResNet': '#58a6ff', 'DS-CNN': '#3fb950', 'CNN': '#d29922', 'BC-ResNet': '#bc8cff' };
+const MODEL_LAYERS = { 'ResNet': 17, 'DS-CNN': 22, 'CNN': 9, 'BC-ResNet': 43 };
+const MODEL_KEYS = { 'ResNet': 'resnet', 'DS-CNN': 'ds-cnn', 'CNN': 'cnn', 'BC-ResNet': 'bc-resnet' };
+
+const DATA = {
+  pi4: {
+    'ResNet':     { params: 112356, fp32: { inf_mean:12.95, inf_std:0.36, p50:16.12, p95:17.19, p99:17.33, max:19.09, max_of_max:23.38, acc:94.36, temp:54.82, cpu:92.64 }, int8: { inf_mean:16.04, inf_std:3.21, p50:19.85, p95:28.36, p99:34.84, max:43.46, max_of_max:51.25, acc:94.36, temp:55.42, cpu:95.16 } },
+    'DS-CNN':     { params: 142280, fp32: { inf_mean:32.17, inf_std:0.53, p50:35.25, p95:36.39, p99:36.71, max:38.14, max_of_max:39.07, acc:94.47, temp:61.06, cpu:95.42 }, int8: { inf_mean:33.91, inf_std:2.04, p50:38.51, p95:44.22, p99:48.68, max:56.29, max_of_max:59.23, acc:94.47, temp:61.64, cpu:98.08 } },
+    'CNN':        { params: 185412, fp32: { inf_mean:15.97, inf_std:0.40, p50:19.16, p95:20.25, p99:20.43, max:22.76, max_of_max:26.20, acc:87.16, temp:59.50, cpu:93.26 }, int8: { inf_mean:26.35, inf_std:5.70, p50:29.38, p95:44.09, p99:49.78, max:56.03, max_of_max:57.70, acc:87.16, temp:58.90, cpu:95.08 } },
+    'BC-ResNet':  { params:  30012, fp32: { inf_mean:44.70, inf_std:2.02, p50:47.47, p95:52.99, p99:56.87, max:62.37, max_of_max:64.99, acc:94.78, temp:60.70, cpu:78.68 }, int8: { inf_mean:48.97, inf_std:4.88, p50:52.12, p95:64.28, p99:70.90, max:79.34, max_of_max:83.75, acc:94.78, temp:60.98, cpu:80.12 } },
+  },
+  pi_zero: {
+    'ResNet':     { params: 112356, fp32: { inf_mean:28.50, inf_std:5.62, p50:34.84, p95:37.30, p99:62.49, max:123.90, max_of_max:221.60, acc:94.36, temp:70.80, cpu:97.16 }, int8: { inf_mean:29.78, inf_std:2.49, p50:39.88, p95:46.63, p99:52.52, max:72.02, max_of_max:92.88, acc:94.36, temp:74.36, cpu:98.68 } },
+    'DS-CNN':     { params: 142280, fp32: { inf_mean:71.39, inf_std:1.41, p50:79.29, p95:80.56, p99:82.39, max:107.96, max_of_max:179.55, acc:94.47, temp:78.66, cpu:100.0 }, int8: { inf_mean:72.70, inf_std:2.08, p50:83.91, p95:87.73, p99:90.55, max:97.72, max_of_max:101.62, acc:94.47, temp:81.10, cpu:100.0 } },
+    'CNN':        { params: 185412, fp32: { inf_mean:47.21, inf_std:3.09, p50:54.82, p95:56.57, p99:73.77, max:86.51, max_of_max:152.59, acc:87.16, temp:76.32, cpu:99.10 }, int8: { inf_mean:56.09, inf_std:4.82, p50:64.36, p95:77.17, p99:85.41, max:114.11, max_of_max:151.80, acc:87.16, temp:79.84, cpu:100.0 } },
+    'BC-ResNet':  { params:  30012, fp32: { inf_mean:94.29, inf_std:5.15, p50:101.22, p95:105.41, p99:126.14, max:160.65, max_of_max:328.04, acc:94.78, temp:78.88, cpu:91.16 }, int8: { inf_mean:95.31, inf_std:4.35, p50:105.35, p95:111.56, p99:118.08, max:171.25, max_of_max:339.97, acc:94.78, temp:81.22, cpu:92.48 } },
+  }
+};
+
+// Recommended: ResNet FP32 on Pi4, ResNet INT8 on PiZero
+const RECOMMENDED = { pi4: { fp32: 'ResNet', int8: 'ResNet' }, pi_zero: { fp32: null, int8: 'ResNet' } };
+
+const TRAIN = {
+  'BC-ResNet': [27.55,59.6,71.53,84.51,86.28,88.1,89.42,90.57,90.33,91.2,91.38,92.08,92.11,91.86,91.45,92.43,92.81,93.4,92.9,93.12,93.38,93.88,93.85,93.98,93.97,94.13,93.94,94.23,94.16,94.3,94.4,94.07,93.93,94.43,94.34,94.49,94.43,94.22,94.51,94.59,94.42,94.62,94.72,94.64,94.71,93.95,94.48,94.68,94.7,94.71,94.71,94.73,94.74,94.82,94.74,94.73,94.65,94.69,94.73,94.69],
+  'CNN':       [32.12,32.6,59.58,53.22,60.56,71.33,70.11,69.11,37.52,61.72,71.05,68.9,67.7,71.64,75.49,67.23,78.4,74.8,72.35,80.63,78.05,78.35,80.47,84.82,81.46,81.28,76.52,76.67,84.22,85.91,82.91,86.63,82.59,82.35,87.02,87.24,86.44,85.93,86.02,82.88,87.21,89.1,85.11,88.43,89.33,87.37,88.38,89.17,89.53,89.07,89.63,89.4,89.68,90.02,89.98,89.97,90.04,90.13,90.09,90.12],
+  'ResNet':    [14.12,61.28,82.37,55.44,77.7,86.18,84.15,79.65,85.28,88.32,86.67,86.71,86.77,88.98,86.8,88.93,90.31,88.92,91.23,89.41,91.86,91.06,89.15,91.29,92.2,91.23,93.01,92.82,92.51,92.54,93.42,92.8,93.89,92.76,93.3,93.87,94.23,94.71,94.11,94.13,94.12,93.93,94.26,94.66,94.47,94.96,94.7,95.03,94.95,94.84,94.97,94.96,95.12,94.9,95.15,95.1,95.03,95.06,95.1,95.12],
+  'DS-CNN':    [70.44,84.27,89.9,90.14,91.69,92.68,93.39,93.29,94.1,93.62,94.03,93.86,94.22,94.32,94.52,94.79,94.77,94.51,94.9,94.61,95.01,94.38,94.72,95.1,95.14,94.84,94.99,94.9,95.03,95.14,95.12,95.26,95.32,95.08,95.39,95.43,95.26,95.4,95.44,95.41,95.43,95.42,95.55,95.63,95.46,95.68,95.49,95.56,95.5,95.58,95.58,95.47,95.54,95.63,95.54,95.56,95.58,95.56,95.62,95.54],
+};
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let state = { platform: 'pi4', prec: 'fp32', distPlatform: 'pi4', distPrec: 'fp32',
+              selPlatform: 'pi4', selPrec: 'fp32',
+              epoch: 60, playing: false, hiddenModels: new Set() };
+
+// ═══════════════════════════════════════════════════
+// BENCHMARK GRID
+// ═══════════════════════════════════════════════════
+function latColor(ms, platform) {
+  const budget = 500;
+  if (platform === 'pi_zero') {
+    if (ms < 40) return 'good'; if (ms < 80) return 'ok'; return 'bad';
+  } else {
+    if (ms < 20) return 'good'; if (ms < 50) return 'ok'; return 'bad';
+  }
+}
+function tempColor(t) { if (t < 65) return 'good'; if (t < 78) return 'ok'; return 'bad'; }
+function accColor(a) { if (a >= 94) return 'good'; if (a >= 90) return 'ok'; return 'bad'; }
+
+function renderBench() {
+  const { platform, prec } = state;
+  const grid = document.getElementById('benchGrid');
+  const sortedModels = [...MODELS].sort((a,b) => DATA[platform][a][prec].inf_mean - DATA[platform][b][prec].inf_mean);
+
+  grid.innerHTML = sortedModels.map(model => {
+    const d = DATA[platform][model][prec];
+    const rec = RECOMMENDED[platform][prec] === model;
+    const maxScale = Math.max(...MODELS.map(m => DATA[platform][m][prec].inf_mean));
+    const barPct = (d.inf_mean / maxScale * 100).toFixed(1);
+    const lc = latColor(d.inf_mean, platform);
+    const barColors = { good:'#3fb950', ok:'#d29922', bad:'#f85149' };
+
+    return `<div class="model-card${rec ? ' recommended' : ''}">
+      ${rec ? '<div class="rec-badge">✓ Recommended</div>' : ''}
+      <div class="model-name">${model}</div>
+      <div class="model-sub">${(DATA[platform][model].params/1000).toFixed(0)}k params · ${MODEL_LAYERS[model]} layers</div>
+      <div class="lat-bar-wrap">
+        <div class="lat-bar-track">
+          <div class="lat-bar-fill" style="width:${barPct}%;background:${barColors[lc]}"></div>
+        </div>
+        <div class="lat-bar-label">Inference latency</div>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Avg. latency</span>
+        <span class="metric-val ${lc}">${d.inf_mean.toFixed(2)} ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Jitter (σ)</span>
+        <span class="metric-val neutral">± ${d.inf_std.toFixed(2)} ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Worst-case max</span>
+        <span class="metric-val ${d.max_of_max > 150 ? 'bad' : d.max_of_max > 60 ? 'ok' : 'good'}">${d.max_of_max.toFixed(0)} ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-key">Peak temp</span>
+        <span class="metric-val ${tempColor(d.temp)}">${d.temp.toFixed(1)} °C</span>
+      </div>
+      <div class="acc-row metric-row">
+        <span class="metric-key">Accuracy</span>
+        <span class="metric-val ${accColor(d.acc)}">${d.acc.toFixed(2)} %</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// LATENCY DISTRIBUTION
+// ═══════════════════════════════════════════════════
+function renderDist() {
+  const { distPlatform, distPrec } = state;
+  const chart = document.getElementById('distChart');
+  const sortedModels = [...MODELS].sort((a,b) => DATA[distPlatform][a][distPrec].inf_mean - DATA[distPlatform][b][distPrec].inf_mean);
+
+  const maxVal = Math.max(...MODELS.map(m => DATA[distPlatform][m][distPrec].max_of_max), 350);
+  const budget = 500;
+
+  const toPct = v => Math.min((v / maxVal * 100), 100).toFixed(2) + '%';
+
+  chart.innerHTML = `
+    <div style="height:20px;position:relative;margin-bottom:12px">
+      ${[50,100,150,200,300].filter(v=>v<maxVal).map(v=>`
+        <div style="position:absolute;left:${toPct(v)};top:4px;font-size:9px;color:var(--text3);transform:translateX(-50%)">${v}ms</div>
+        <div style="position:absolute;left:${toPct(v)};top:16px;bottom:0;border-left:1px dashed var(--border);height:10px"></div>
+      `).join('')}
+    </div>
+    ${sortedModels.map(model => {
+      const d = DATA[distPlatform][model][distPrec];
+      const col = MODEL_COLORS[model];
+      const p50 = toPct(d.p50); const p95 = toPct(d.p95); const p99 = toPct(d.p99); const mmax = toPct(d.max_of_max);
+      return `<div class="dist-row">
+        <div class="dist-label">
+          <span class="dist-model-name" style="color:${col}">${model}</span>
+          <span class="dist-stat">p50: ${d.p50}ms · p95: ${d.p95}ms · max: ${d.max_of_max}ms</span>
+        </div>
+        <div class="dist-track">
+          <div class="dist-segment" style="left:0;width:${p50};background:${col};opacity:.9"></div>
+          <div class="dist-segment" style="left:${p50};width:calc(${p95} - ${p50});background:${col};opacity:.45;border-radius:0 4px 4px 0"></div>
+          <div class="dist-whisker" style="left:${p95};width:calc(${mmax} - ${p95});border-color:${col};border-right:none;border-left:none;border-top:none"></div>
+          <div style="position:absolute;left:${mmax};top:2px;width:2px;height:16px;background:${col};opacity:.7;border-radius:2px"></div>
+        </div>
+      </div>`;
+    }).join('')}
+    <div class="dist-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Median (p50)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--blue);opacity:.45"></div> 95th percentile</div>
+      <div class="legend-item" style="color:var(--text2)">▏ Worst-case max (across 5 runs)</div>
+      <div style="margin-left:auto;font-size:11px;color:var(--text3)">Scale max: ${maxVal.toFixed(0)} ms</div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════
+// TRAINING CHART
+// ═══════════════════════════════════════════════════
+let trainAnim = null;
+
+function renderTrainLegend() {
+  const legend = document.getElementById('trainLegend');
+  legend.innerHTML = Object.entries(TRAIN).map(([name]) => `
+    <div class="train-legend-item" onclick="toggleModel('${name}')" id="leg_${name.replace(/[^a-z]/gi,'_')}">
+      <div class="train-legend-dot" style="background:${MODEL_COLORS[name]};height:3px;width:24px;border-radius:2px"></div>
+      <span style="color:${MODEL_COLORS[name]}">${name}</span>
+    </div>
+  `).join('');
+}
+
+function toggleModel(name) {
+  if (state.hiddenModels.has(name)) state.hiddenModels.delete(name);
+  else state.hiddenModels.add(name);
+  const el = document.getElementById('leg_' + name.replace(/[^a-z]/gi,'_'));
+  if (el) el.style.opacity = state.hiddenModels.has(name) ? '0.3' : '1';
+  drawTrainChart(state.epoch);
+}
+
+function drawTrainChart(epoch) {
+  const canvas = document.getElementById('trainChart');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const pad = { top: 16, right: 20, bottom: 36, left: 44 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  const yTicks = [20, 40, 60, 70, 80, 90, 95, 100];
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 0.5;
+  yTicks.forEach(y => {
+    const yPx = pad.top + chartH - ((y - 0) / 100 * chartH);
+    ctx.beginPath(); ctx.moveTo(pad.left, yPx); ctx.lineTo(pad.left + chartW, yPx); ctx.stroke();
+    ctx.fillStyle = '#6e7681'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(y + '%', pad.left - 6, yPx + 3.5);
+  });
+
+  // X axis ticks
+  [10, 20, 30, 40, 50, 60].forEach(e => {
+    const xPx = pad.left + ((e - 1) / 59) * chartW;
+    ctx.fillStyle = '#6e7681'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(e, xPx, H - pad.bottom + 14);
+  });
+  ctx.fillStyle = '#8b949e'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Epoch', pad.left + chartW / 2, H - 4);
+
+  // Lines
+  Object.entries(TRAIN).forEach(([name, vals]) => {
+    if (state.hiddenModels.has(name)) return;
+    const col = MODEL_COLORS[name];
+    const n = Math.min(epoch, vals.length);
+    ctx.beginPath();
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    for (let i = 0; i < n; i++) {
+      const xPx = pad.left + (i / 59) * chartW;
+      const yPx = pad.top + chartH - (vals[i] / 100 * chartH);
+      if (i === 0) ctx.moveTo(xPx, yPx); else ctx.lineTo(xPx, yPx);
+    }
+    ctx.stroke();
+    // Last point dot
+    if (n > 0) {
+      const xPx = pad.left + ((n-1) / 59) * chartW;
+      const yPx = pad.top + chartH - (vals[n-1] / 100 * chartH);
+      ctx.beginPath(); ctx.arc(xPx, yPx, 3.5, 0, Math.PI*2);
+      ctx.fillStyle = col; ctx.fill();
+    }
+  });
+
+  // Epoch line
+  if (epoch < 60) {
+    const xPx = pad.left + ((epoch - 1) / 59) * chartW;
+    ctx.strokeStyle = '#8b949e'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+    ctx.beginPath(); ctx.moveTo(xPx, pad.top); ctx.lineTo(xPx, pad.top + chartH); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function setEpoch(e) {
+  state.epoch = e;
+  document.getElementById('epochDisplay').textContent = `Epoch ${e} / 60`;
+  document.getElementById('epochSlider').value = e;
+  drawTrainChart(e);
+}
+
+function togglePlay() {
+  state.playing = !state.playing;
+  document.getElementById('playBtn').textContent = state.playing ? '⏸ Pause' : '▶ Play';
+  if (state.playing) {
+    if (state.epoch >= 60) { state.epoch = 0; }
+    animateTrain();
+  } else {
+    cancelAnimationFrame(trainAnim);
+  }
+}
+
+let lastT = null;
+function animateTrain(ts) {
+  if (!state.playing) return;
+  if (!lastT) lastT = ts;
+  const dt = ts - lastT;
+  if (dt > 80) {
+    lastT = ts;
+    state.epoch = Math.min(state.epoch + 1, 60);
+    setEpoch(state.epoch);
+    if (state.epoch >= 60) { state.playing = false; document.getElementById('playBtn').textContent = '▶ Play'; return; }
+  }
+  trainAnim = requestAnimationFrame(animateTrain);
+}
+
+// ═══════════════════════════════════════════════════
+// MODEL SELECTOR
+// ═══════════════════════════════════════════════════
+function updateSelector() {
+  const latBudget = +document.getElementById('latBudget').value;
+  const accThresh = +document.getElementById('accThresh').value;
+  document.getElementById('latBudgetVal').textContent = latBudget + ' ms';
+  document.getElementById('accThreshVal').textContent = accThresh.toFixed(1) + ' %';
+
+  const { selPlatform, selPrec } = state;
+  const precs = selPrec === 'any' ? ['fp32', 'int8'] : [selPrec];
+
+  let candidates = [];
+  for (const model of MODELS) {
+    for (const prec of precs) {
+      const d = DATA[selPlatform][model][prec];
+      if (d.inf_mean <= latBudget && d.acc >= accThresh) {
+        candidates.push({ model, prec, d, layers: MODEL_LAYERS[model], score: d.acc - d.inf_std * 0.5 });
+      }
+    }
+  }
+
+  candidates.sort((a,b) => b.d.acc - a.d.acc || a.d.inf_mean - b.d.inf_mean);
+  const card = document.getElementById('recCard');
+
+  if (candidates.length === 0) {
+    card.innerHTML = `<div class="rec-impossible">No model meets both constraints for ${selPlatform === 'pi4' ? 'Pi 4B' : 'Pi Zero 2W'}.<br><span style="font-size:12px;color:var(--text2)">Try relaxing latency budget or accuracy threshold.</span></div>`;
+    return;
+  }
+
+  const best = candidates[0];
+  const isThesisRec = RECOMMENDED[selPlatform][best.prec] === best.model;
+  const warn = (selPlatform === 'pi_zero' && best.model === 'ResNet' && best.prec === 'fp32')
+    ? '⚠️ ResNet FP32 on Pi Zero has tail outliers up to 222 ms in 3/5 runs. Prefer INT8 for always-on use.'
+    : (selPlatform === 'pi_zero' && (best.model === 'DS-CNN' || best.model === 'BC-ResNet') && ['fp32','int8'].includes(best.prec) && DATA[selPlatform][best.model][best.prec].temp > 79)
+    ? `⚠️ ${best.model} peaks at ${DATA[selPlatform][best.model][best.prec].temp.toFixed(1)}°C — approaching thermal throttle on Pi Zero.`
+    : '';
+
+  card.innerHTML = `
+    <div class="rec-model">${best.model} (${best.prec.toUpperCase()})</div>
+    <div class="rec-details">
+      Avg. inference: <strong>${best.d.inf_mean.toFixed(2)} ms</strong><br>
+      Jitter σ: <strong>${best.d.inf_std.toFixed(2)} ms</strong><br>
+      Worst-case max: <strong>${best.d.max_of_max.toFixed(0)} ms</strong><br>
+      Accuracy: <strong>${best.d.acc.toFixed(2)} %</strong><br>
+      Params: <strong>${(DATA[selPlatform][best.model].params/1000).toFixed(0)}k</strong> · Layers: <strong>${MODEL_LAYERS[best.model]}</strong><br>
+      Peak temp: <strong>${best.d.temp.toFixed(1)} °C</strong>
+      ${isThesisRec ? '<br><span style="color:var(--green);font-size:11px">✓ Matches thesis recommendation</span>' : ''}
+    </div>
+    ${warn ? `<div class="rec-warn">${warn}</div>` : ''}
+    ${candidates.length > 1 ? `<div style="margin-top:10px;font-size:11px;color:var(--text3)">${candidates.length-1} other model${candidates.length>2?'s':''} also qualify: ${candidates.slice(1).map(c=>c.model+' '+c.prec.toUpperCase()).join(', ')}</div>` : ''}
+  `;
+}
+
+// ═══════════════════════════════════════════════════
+// TOGGLE HANDLERS
+// ═══════════════════════════════════════════════════
+function setToggle(groupId, activeText) {
+  document.querySelectorAll(`#${groupId} .toggle-btn`).forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === activeText || b.getAttribute('onclick')?.includes(activeText));
+  });
+}
+
+function setPlatform(p) {
+  state.platform = p;
+  document.querySelectorAll('#platformToggle .toggle-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&p==='pi4')||(i===1&&p==='pi_zero')));
+  renderBench();
+}
+function setPrec(p) {
+  state.prec = p;
+  document.querySelectorAll('#precToggle .toggle-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&p==='fp32')||(i===1&&p==='int8')));
+  renderBench();
+}
+function setDistPlatform(p) {
+  state.distPlatform = p;
+  document.querySelectorAll('#distPlatformToggle .toggle-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&p==='pi4')||(i===1&&p==='pi_zero')));
+  renderDist();
+}
+function setDistPrec(p) {
+  state.distPrec = p;
+  document.querySelectorAll('#distPrecToggle .toggle-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&p==='fp32')||(i===1&&p==='int8')));
+  renderDist();
+}
+function setSelPlatform(p) {
+  state.selPlatform = p;
+  document.querySelectorAll('#selPlatformToggle .toggle-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&p==='pi4')||(i===1&&p==='pi_zero')));
+  updateSelector();
+}
+function setSelPrec(p) {
+  state.selPrec = p;
+  document.querySelectorAll('#selPrecToggle .toggle-btn').forEach((b,i)=>b.classList.toggle('active', (i===0&&p==='fp32')||(i===1&&p==='int8')||(i===2&&p==='any')));
+  updateSelector();
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  renderBench();
+  renderDist();
+  renderTrainLegend();
+  drawTrainChart(60);
+  updateSelector();
+});
+
+window.addEventListener('resize', () => { drawTrainChart(state.epoch); });
+
+// ═══════════════════════════════════════════════════
+// MFCC COMPUTATION  (matches torchaudio.transforms.MFCC defaults)
+// n_fft=400 zero-padded to 512 for radix-2 FFT; mel filterbank for 257 bins
+// AmplitudeToDb (10*log10, top_db=None); DCT-II ortho
+// ═══════════════════════════════════════════════════
+const DEMO = {
+  SR: 16000, N_FFT: 400, FFT_SZ: 512, HOP: 160, N_MELS: 40, N_MFCC: 40, TARGET: 101,
+  sessions: {}, activeModel: 'resnet', recording: false,
+  classes: ["yes","no","up","down","left","right","on","off","stop","go","zero","one","two","three","four","five","six","seven","eight","nine","bed","bird","cat","dog","happy","house","marvin","sheila","tree","wow","backward","forward","follow","learn","visual","_silence_"],
+};
+
+// Precompute Hann window
+DEMO.hann = Float32Array.from({length: DEMO.N_FFT}, (_, i) =>
+  0.5 - 0.5 * Math.cos(2 * Math.PI * i / DEMO.N_FFT));
+
+// Precompute mel filterbank (257 bins → 40 mel channels)
+DEMO.melFb = (() => {
+  const hzToMel = hz => 2595 * Math.log10(1 + hz / 700);
+  const melToHz = mel => 700 * (10 ** (mel / 2595) - 1);
+  const mMin = hzToMel(0), mMax = hzToMel(DEMO.SR / 2);
+  const pts = Array.from({length: DEMO.N_MELS + 2}, (_, i) =>
+    melToHz(mMin + (mMax - mMin) * i / (DEMO.N_MELS + 1)));
+  const numBins = DEMO.FFT_SZ / 2 + 1;
+  return Array.from({length: DEMO.N_MELS}, (_, m) => {
+    const f = new Float32Array(numBins);
+    for (let k = 0; k < numBins; k++) {
+      const freq = k * DEMO.SR / DEMO.FFT_SZ;
+      if (freq >= pts[m] && freq <= pts[m+1])       f[k] = (freq - pts[m]) / (pts[m+1] - pts[m]);
+      else if (freq > pts[m+1] && freq <= pts[m+2]) f[k] = (pts[m+2] - freq) / (pts[m+2] - pts[m+1]);
+    }
+    return f;
+  });
+})();
+
+// Precompute DCT-II matrix with ortho normalization
+DEMO.dct = Array.from({length: DEMO.N_MFCC}, (_, k) => {
+  const s = k === 0 ? Math.sqrt(1 / DEMO.N_MELS) : Math.sqrt(2 / DEMO.N_MELS);
+  return Float32Array.from({length: DEMO.N_MELS}, (_, n) =>
+    s * Math.cos(Math.PI * k * (2 * n + 1) / (2 * DEMO.N_MELS)));
+});
+
+function fftRadix2(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, half = len >> 1;
+    const wR = Math.cos(ang), wI = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cR = 1, cI = 0;
+      for (let j = 0; j < half; j++) {
+        const tR = re[i+j+half]*cR - im[i+j+half]*cI;
+        const tI = re[i+j+half]*cI + im[i+j+half]*cR;
+        re[i+j+half] = re[i+j] - tR; im[i+j+half] = im[i+j] - tI;
+        re[i+j] += tR; im[i+j] += tI;
+        const nR = cR*wR - cI*wI; cI = cR*wI + cI*wR; cR = nR;
+      }
+    }
+  }
+}
+
+function computeMFCC(wave) {
+  const { N_FFT, FFT_SZ, HOP, N_MELS, N_MFCC, TARGET, hann, melFb, dct } = DEMO;
+  const padSz = N_FFT >> 1;
+  const padded = new Float32Array(wave.length + 2 * padSz);
+  padded.set(wave, padSz);
+  const nF = Math.floor((padded.length - N_FFT) / HOP) + 1;
+  const numBins = FFT_SZ / 2 + 1;
+
+  const melSpec = new Float32Array(N_MELS * nF);
+  const re = new Float32Array(FFT_SZ);
+  const im = new Float32Array(FFT_SZ);
+
+  for (let t = 0; t < nF; t++) {
+    re.fill(0); im.fill(0);
+    for (let i = 0; i < N_FFT; i++) re[i] = padded[t * HOP + i] * hann[i];
+    fftRadix2(re, im);
+    for (let m = 0; m < N_MELS; m++) {
+      let s = 0;
+      const filt = melFb[m];
+      for (let k = 0; k < numBins; k++) s += filt[k] * (re[k]*re[k] + im[k]*im[k]);
+      melSpec[m * nF + t] = Math.max(s, 1e-10);
+    }
+  }
+  // AmplitudeToDb: 10 * log10(x), no top_db clipping (torchaudio default)
+  for (let i = 0; i < melSpec.length; i++) melSpec[i] = 10 * Math.log10(melSpec[i]);
+
+  // DCT-II → MFCC
+  const mfccRaw = new Float32Array(N_MFCC * nF);
+  for (let k = 0; k < N_MFCC; k++) {
+    const row = dct[k];
+    for (let t = 0; t < nF; t++) {
+      let s = 0;
+      for (let m = 0; m < N_MELS; m++) s += row[m] * melSpec[m * nF + t];
+      mfccRaw[k * nF + t] = s;
+    }
+  }
+  // Pad/truncate to TARGET frames
+  const out = new Float32Array(N_MFCC * TARGET);
+  const frames = Math.min(nF, TARGET);
+  for (let k = 0; k < N_MFCC; k++)
+    for (let t = 0; t < frames; t++)
+      out[k * TARGET + t] = mfccRaw[k * nF + t];
+  return out;
+}
+
+function resampleLinear(wave, fromSR, toSR) {
+  if (fromSR === toSR) return wave;
+  const ratio = fromSR / toSR;
+  const outLen = Math.round(wave.length / ratio);
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const src = i * ratio;
+    const lo = Math.floor(src), hi = Math.min(lo + 1, wave.length - 1);
+    out[i] = wave[lo] + (wave[hi] - wave[lo]) * (src - lo);
+  }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════
+// VISUALIZATIONS
+// ═══════════════════════════════════════════════════
+function drawWaveform(wave) {
+  const canvas = document.getElementById('waveCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.fillStyle = '#161b22'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 1; ctx.beginPath();
+  const step = wave.length / W;
+  for (let x = 0; x < W; x++) {
+    const y = H/2 - wave[Math.floor(x * step)] * (H/2 - 2);
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function drawMFCC(mfcc) {
+  const canvas = document.getElementById('mfccCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const nM = DEMO.N_MFCC, nT = DEMO.TARGET;
+  let mn = Infinity, mx = -Infinity;
+  for (const v of mfcc) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  const range = mx - mn || 1;
+  const cW = W / nT, cH = H / nM;
+  for (let k = 0; k < nM; k++) {
+    for (let t = 0; t < nT; t++) {
+      const v = (mfcc[k * nT + t] - mn) / range;
+      // viridis-like colormap
+      const r = Math.round(68 + v * 187);
+      const g = Math.round(1 + v * 218);
+      const b = Math.round(84 + v * (-84 + v * 100 - 100));
+      ctx.fillStyle = `rgb(${r},${g},${Math.max(0,b)})`;
+      ctx.fillRect(t * cW, (nM - 1 - k) * cH, cW + 0.5, cH + 0.5);
+    }
+  }
+}
+
+function renderPreds(probs) {
+  const top5 = Array.from(probs.entries()).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  const topWord = DEMO.classes[top5[0][0]];
+  const topConf = (top5[0][1] * 100).toFixed(1);
+
+  document.getElementById('topPred').innerHTML = `
+    <div class="top-pred-word">${topWord}</div>
+    <div class="top-pred-conf">${topConf}% confidence</div>`;
+
+  const barColors = ['#3fb950','#58a6ff','#bc8cff','#d29922','#8b949e'];
+  document.getElementById('predBars').innerHTML = top5.map(([idx, p], i) => `
+    <div class="pred-bar-row">
+      <div class="pred-lbl">${DEMO.classes[idx]}</div>
+      <div class="pred-track">
+        <div class="pred-fill" style="width:${(p*100).toFixed(1)}%;background:${barColors[i]}">
+          ${p > 0.08 ? (p*100).toFixed(1)+'%' : ''}
+        </div>
+      </div>
+      <div class="pred-pct">${(p*100).toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// ONNX INFERENCE
+// ═══════════════════════════════════════════════════
+async function loadOnnxModel(name) {
+  if (DEMO.sessions[name]) return DEMO.sessions[name];
+  setDemoStatus(`Loading ${name}…`, 'amber');
+  try {
+    ort.env.wasm.numThreads = 1; // safer for single-threaded WASM
+    const sess = await ort.InferenceSession.create(`./models/${name}.onnx`);
+    DEMO.sessions[name] = sess;
+    setDemoStatus(`${name} ready ✓`, 'green');
+    return sess;
+  } catch (e) {
+    setDemoStatus(`Failed to load ${name}: ${e.message}`, 'red');
+    throw e;
+  }
+}
+
+async function runOnnx(mfccData, modelName) {
+  const sess = await loadOnnxModel(modelName);
+  const tensor = new ort.Tensor('float32', mfccData, [1, 40, 101]);
+  const out = await sess.run({ mfcc: tensor });
+  const logits = Array.from(out.logits.data);
+  const maxL = Math.max(...logits);
+  const exp = logits.map(x => Math.exp(x - maxL));
+  const sum = exp.reduce((a, b) => a + b, 0);
+  return exp.map(x => x / sum);
+}
+
+function setDemoStatus(text, color) {
+  document.getElementById('modelStatusText').textContent = text;
+  document.getElementById('modelDot').className = `status-dot ${color}`;
+}
+
+// ═══════════════════════════════════════════════════
+// RECORDING + PIPELINE
+// ═══════════════════════════════════════════════════
+function selectDemoModel(name) {
+  DEMO.activeModel = name;
+  document.querySelectorAll('.model-sel-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['resnet','cnn','ds-cnn','bc-resnet'][i] === name);
+  });
+  // Preload model in background
+  loadOnnxModel(name).catch(() => {});
+}
+
+async function doRecord() {
+  if (DEMO.recording) return;
+  DEMO.recording = true;
+  const btn = document.getElementById('recordBtn');
+  const cd = document.getElementById('countdown');
+  btn.disabled = true;
+  btn.classList.add('recording');
+  btn.textContent = '🔴 Recording…';
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch (e) {
+    setDemoStatus('Microphone access denied', 'red');
+    cd.textContent = 'Please allow microphone access and try again.';
+    btn.disabled = false; btn.classList.remove('recording');
+    btn.textContent = '🎤 Hold to record keyword (1 s)';
+    DEMO.recording = false; return;
+  }
+
+  const audioCtx = new AudioContext();
+  const actualSR = audioCtx.sampleRate;
+  const source = audioCtx.createMediaStreamSource(stream);
+  const bufSize = 4096;
+  const proc = audioCtx.createScriptProcessor(bufSize, 1, 1);
+  const chunks = [];
+
+  proc.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+  source.connect(proc);
+  proc.connect(audioCtx.destination);
+
+  // Countdown
+  for (let i = 3; i >= 1; i--) {
+    cd.textContent = `Recording… ${i}s`;
+    await new Promise(r => setTimeout(r, 333));
+  }
+  cd.textContent = '';
+
+  await new Promise(r => setTimeout(r, 1000));
+
+  stream.getTracks().forEach(t => t.stop());
+  source.disconnect(); proc.disconnect(); audioCtx.close();
+
+  // Assemble waveform
+  const raw = new Float32Array(chunks.reduce((s, c) => s + c.length, 0));
+  let off = 0;
+  for (const c of chunks) { raw.set(c, off); off += c.length; }
+
+  // Resample to 16 kHz and take 1 s
+  const wave16k = resampleLinear(raw, actualSR, DEMO.SR);
+  const wave = new Float32Array(DEMO.SR);
+  wave.set(wave16k.slice(0, DEMO.SR));
+
+  drawWaveform(wave);
+  setDemoStatus(`Running ${DEMO.activeModel}…`, 'amber');
+  cd.textContent = 'Computing MFCC & running inference…';
+
+  try {
+    const mfcc = computeMFCC(wave);
+    drawMFCC(mfcc);
+    const probs = await runOnnx(mfcc, DEMO.activeModel);
+    renderPreds(probs);
+    setDemoStatus(`${DEMO.activeModel} — inference done ✓`, 'green');
+    cd.textContent = '';
+  } catch (e) {
+    cd.textContent = `Error: ${e.message}`;
+    setDemoStatus('Inference error', 'red');
+  }
+
+  btn.disabled = false; btn.classList.remove('recording');
+  btn.textContent = '🎤 Record again';
+  DEMO.recording = false;
+}
+
+// Preload default model on page load
+window.addEventListener('load', () => {
+  loadOnnxModel('resnet').catch(() => {});
+});
+</script>
+</body>
+</html>
