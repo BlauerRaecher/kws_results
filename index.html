@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>KWS on Embedded Hardware — Results</title>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
 <style>
 :root {
   --bg0: #0d1117;
@@ -190,47 +189,6 @@ footer a { color: var(--text2); text-decoration: none; }
 footer a:hover { color: var(--text1); }
 .sep { margin: 0 8px; }
 
-/* ── DEMO ── */
-.demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.demo-panel { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
-.demo-status-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
-.status-badge {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--text2); padding: 4px 12px;
-  background: var(--bg1); border-radius: 99px; border: 1px solid var(--border);
-}
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
-.status-dot.green { background: var(--green); }
-.status-dot.red { background: var(--red); animation: pulse 1s infinite; }
-.status-dot.amber { background: var(--amber); }
-.model-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
-.model-sel-btn {
-  padding: 5px 12px; border: 1px solid var(--border); border-radius: 6px;
-  background: transparent; color: var(--text2); font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: all .15s;
-}
-.model-sel-btn.active { border-color: var(--blue); color: var(--blue); background: rgba(88,166,255,.1); }
-.record-btn {
-  width: 100%; padding: 13px; border-radius: 8px; border: none;
-  background: var(--red); color: #fff; font-size: 14px; font-weight: 700;
-  cursor: pointer; transition: opacity .15s; margin-bottom: 12px;
-}
-.record-btn:disabled { opacity: .5; cursor: not-allowed; }
-.record-btn.recording { animation: pulse 1s infinite; }
-.countdown { text-align: center; font-size: 11px; color: var(--text2); height: 16px; margin-bottom: 10px; }
-.canvas-label { font-size: 11px; color: var(--text3); margin: 10px 0 4px; }
-canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background: var(--bg2); }
-.top-pred { text-align: center; padding: 16px 0 8px; }
-.top-pred-word { font-size: 32px; font-weight: 800; color: var(--green); letter-spacing: -0.5px; }
-.top-pred-conf { font-size: 12px; color: var(--text2); margin-top: 2px; }
-.pred-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-.pred-lbl { font-size: 11px; color: var(--text2); min-width: 70px; text-align: right; font-family: monospace; }
-.pred-track { flex: 1; background: var(--bg2); border-radius: 3px; height: 18px; overflow: hidden; position: relative; }
-.pred-fill { height: 100%; border-radius: 3px; display: flex; align-items: center; padding-left: 6px; font-size: 10px; font-weight: 700; color: #0d1117; transition: width .4s ease; min-width: 4px; }
-.pred-pct { font-size: 11px; color: var(--text2); min-width: 38px; }
-.demo-hint { font-size: 11px; color: var(--text3); line-height: 1.6; margin-top: 12px; padding: 10px; background: var(--bg2); border-radius: 6px; }
-.keywords-list { font-size: 10px; color: var(--text3); line-height: 1.7; margin-top: 6px; font-family: monospace; }
-
 /* ── DOWNLOADS ── */
 .dl-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .dl-card { background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
@@ -266,7 +224,6 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
     <a href="#training">Training</a>
     <a href="#selector">Selector</a>
     <a href="#findings">Findings</a>
-    <a href="#demo" style="color:var(--red);font-weight:700">🎙 Live Demo</a>
     <a href="#downloads">Downloads</a>
   </div>
 </nav>
@@ -501,86 +458,36 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
 
 <hr class="divider">
 
-<!-- LIVE DEMO -->
-<div class="section" id="demo">
-  <div class="section-header">
-    <div class="section-title">🎙 Live Demo</div>
-    <div class="section-sub">Record a keyword — the real trained model runs entirely in your browser via ONNX Runtime Web. No audio is ever sent to a server.</div>
-  </div>
-  <div class="demo-status-row">
-    <div class="status-badge"><div class="status-dot amber" id="modelDot"></div><span id="modelStatusText">Select a model to load</span></div>
-    <div class="status-badge"><div class="status-dot green"></div>100% local · WebAssembly · no network</div>
-  </div>
-  <div class="demo-grid">
-    <div class="demo-panel">
-      <div class="selector-title" style="margin-bottom:12px">Select model &amp; record</div>
-      <div class="model-btns" id="demoModelBtns">
-        <button class="model-sel-btn active" onclick="selectDemoModel('resnet')">ResNet <span style="font-size:10px;opacity:.6">recommended</span></button>
-        <button class="model-sel-btn" onclick="selectDemoModel('cnn')">CNN</button>
-        <button class="model-sel-btn" onclick="selectDemoModel('ds-cnn')">DS-CNN</button>
-        <button class="model-sel-btn" onclick="selectDemoModel('bc-resnet')">BC-ResNet</button>
-      </div>
-      <button class="record-btn" id="recordBtn" onclick="doRecord()">🎤 Hold to record keyword (1 s)</button>
-      <div class="countdown" id="countdown"></div>
-      <div class="canvas-label">Waveform</div>
-      <canvas class="demo-canvas" id="waveCanvas" height="60"></canvas>
-      <div class="canvas-label">MFCC features (40 × 101)</div>
-      <canvas class="demo-canvas" id="mfccCanvas" height="80"></canvas>
-      <div class="demo-hint">
-        Speak one of the 36 supported keywords clearly, ~0.5–1 s after clicking.
-        <div class="keywords-list">yes · no · up · down · left · right · on · off · stop · go · zero · one · two · three · four · five · six · seven · eight · nine · bed · bird · cat · dog · happy · house · marvin · sheila · tree · wow · backward · forward · follow · learn · visual · silence</div>
-      </div>
-    </div>
-    <div class="demo-panel">
-      <div class="selector-title" style="margin-bottom:12px">Prediction</div>
-      <div class="top-pred" id="topPred">
-        <div class="top-pred-word" style="color:var(--text3);font-size:18px">—</div>
-        <div class="top-pred-conf">Record a keyword to start</div>
-      </div>
-      <div id="predBars"></div>
-      <div style="margin-top:16px;font-size:11px;color:var(--text3)">
-        Top-5 · softmax probabilities · inference via ONNX Runtime WebAssembly
-      </div>
-    </div>
-  </div>
-</div>
-
-<hr class="divider">
-
 <!-- DOWNLOADS -->
 <div class="section" id="downloads">
   <div class="section-header">
     <div class="section-title">Downloads</div>
-    <div class="section-sub">All trained model weights — ONNX for cross-framework deployment, PyTorch .pt for fine-tuning or further research.</div>
+    <div class="section-sub">All trained model weights — PyTorch .pt for fine-tuning or further research.</div>
   </div>
   <div class="dl-grid">
     <div class="dl-card">
       <div class="dl-model" style="color:var(--blue)">ResNet</div>
       <div class="dl-info">112k params · 17 layers<br>FP32: 12.95 ms on Pi 4B<br>FP32: 28.50 ms on Pi Zero<br><strong style="color:var(--green)">✓ Studienarbeit recommendation (FP32, both boards)</strong></div>
-      <a class="dl-btn primary" href="models/resnet.onnx" download>↓ ONNX (464 KB)</a>
       <a class="dl-btn" href="models/resnet.pt" download>↓ PyTorch .pt (1.3 MB)</a>
     </div>
     <div class="dl-card">
       <div class="dl-model" style="color:var(--green)">DS-CNN</div>
       <div class="dl-info">142k params · 22 layers<br>FP32: 32.17 ms on Pi 4B<br>Acc: 94.47 % · 36 classes</div>
-      <a class="dl-btn primary" href="models/ds-cnn.onnx" download>↓ ONNX (579 KB)</a>
       <a class="dl-btn" href="models/ds-cnn.pt" download>↓ PyTorch .pt (1.7 MB)</a>
     </div>
     <div class="dl-card">
       <div class="dl-model" style="color:var(--amber)">CNN</div>
       <div class="dl-info">185k params · 9 layers<br>FP32: 15.97 ms on Pi 4B<br>Acc: 87.16 % — lowest accuracy</div>
-      <a class="dl-btn primary" href="models/cnn.onnx" download>↓ ONNX (737 KB)</a>
       <a class="dl-btn" href="models/cnn.pt" download>↓ PyTorch .pt (2.1 MB)</a>
     </div>
     <div class="dl-card">
       <div class="dl-model" style="color:var(--purple)">BC-ResNet</div>
       <div class="dl-info">30k params · 43 layers<br>FP32: 44.70 ms on Pi 4B<br>Acc: 94.78 % — highest accuracy</div>
-      <a class="dl-btn primary" href="models/bc-resnet.onnx" download>↓ ONNX (426 KB)</a>
       <a class="dl-btn" href="models/bc-resnet.pt" download>↓ PyTorch .pt (560 KB)</a>
     </div>
   </div>
   <div style="margin-top:14px;font-size:11px;color:var(--text3);line-height:1.8">
-    ONNX models exported with opset 18. Input: <code style="background:var(--bg2);padding:1px 5px;border-radius:3px">float32[batch, 40, 101]</code> (MFCC, 40 coefficients × 101 time frames at 16 kHz / 10 ms hop).
+    Input: <code style="background:var(--bg2);padding:1px 5px;border-radius:3px">float32[batch, 40, 101]</code> (MFCC, 40 coefficients × 101 time frames at 16 kHz / 10 ms hop).
     Output: <code style="background:var(--bg2);padding:1px 5px;border-radius:3px">float32[batch, 36]</code> logits.
     Training: PyTorch/ROCm on AMD RX 6800 · Dataset: Google Speech Commands v2 · 36 classes.
   </div>
@@ -970,323 +877,6 @@ window.addEventListener('load', () => {
 });
 
 window.addEventListener('resize', () => { drawTrainChart(state.epoch); });
-
-// ═══════════════════════════════════════════════════
-// MFCC COMPUTATION  (matches torchaudio.transforms.MFCC defaults)
-// n_fft=400 zero-padded to 512 for radix-2 FFT; mel filterbank for 257 bins
-// AmplitudeToDb (10*log10, top_db=None); DCT-II ortho
-// ═══════════════════════════════════════════════════
-const DEMO = {
-  SR: 16000, N_FFT: 400, FFT_SZ: 512, HOP: 160, N_MELS: 40, N_MFCC: 40, TARGET: 101,
-  sessions: {}, activeModel: 'resnet', recording: false,
-  classes: ["yes","no","up","down","left","right","on","off","stop","go","zero","one","two","three","four","five","six","seven","eight","nine","bed","bird","cat","dog","happy","house","marvin","sheila","tree","wow","backward","forward","follow","learn","visual","_silence_"],
-};
-
-// Precompute Hann window
-DEMO.hann = Float32Array.from({length: DEMO.N_FFT}, (_, i) =>
-  0.5 - 0.5 * Math.cos(2 * Math.PI * i / DEMO.N_FFT));
-
-// Precompute mel filterbank (257 bins → 40 mel channels)
-DEMO.melFb = (() => {
-  const hzToMel = hz => 2595 * Math.log10(1 + hz / 700);
-  const melToHz = mel => 700 * (10 ** (mel / 2595) - 1);
-  const mMin = hzToMel(0), mMax = hzToMel(DEMO.SR / 2);
-  const pts = Array.from({length: DEMO.N_MELS + 2}, (_, i) =>
-    melToHz(mMin + (mMax - mMin) * i / (DEMO.N_MELS + 1)));
-  const numBins = DEMO.FFT_SZ / 2 + 1;
-  return Array.from({length: DEMO.N_MELS}, (_, m) => {
-    const f = new Float32Array(numBins);
-    for (let k = 0; k < numBins; k++) {
-      const freq = k * DEMO.SR / DEMO.FFT_SZ;
-      if (freq >= pts[m] && freq <= pts[m+1])       f[k] = (freq - pts[m]) / (pts[m+1] - pts[m]);
-      else if (freq > pts[m+1] && freq <= pts[m+2]) f[k] = (pts[m+2] - freq) / (pts[m+2] - pts[m+1]);
-    }
-    return f;
-  });
-})();
-
-// Precompute DCT-II matrix with ortho normalization
-DEMO.dct = Array.from({length: DEMO.N_MFCC}, (_, k) => {
-  const s = k === 0 ? Math.sqrt(1 / DEMO.N_MELS) : Math.sqrt(2 / DEMO.N_MELS);
-  return Float32Array.from({length: DEMO.N_MELS}, (_, n) =>
-    s * Math.cos(Math.PI * k * (2 * n + 1) / (2 * DEMO.N_MELS)));
-});
-
-function fftRadix2(re, im) {
-  const n = re.length;
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) { let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const ang = -2 * Math.PI / len, half = len >> 1;
-    const wR = Math.cos(ang), wI = Math.sin(ang);
-    for (let i = 0; i < n; i += len) {
-      let cR = 1, cI = 0;
-      for (let j = 0; j < half; j++) {
-        const tR = re[i+j+half]*cR - im[i+j+half]*cI;
-        const tI = re[i+j+half]*cI + im[i+j+half]*cR;
-        re[i+j+half] = re[i+j] - tR; im[i+j+half] = im[i+j] - tI;
-        re[i+j] += tR; im[i+j] += tI;
-        const nR = cR*wR - cI*wI; cI = cR*wI + cI*wR; cR = nR;
-      }
-    }
-  }
-}
-
-function computeMFCC(wave) {
-  const { N_FFT, FFT_SZ, HOP, N_MELS, N_MFCC, TARGET, hann, melFb, dct } = DEMO;
-  const padSz = N_FFT >> 1;
-  const padded = new Float32Array(wave.length + 2 * padSz);
-  padded.set(wave, padSz);
-  const nF = Math.floor((padded.length - N_FFT) / HOP) + 1;
-  const numBins = FFT_SZ / 2 + 1;
-
-  const melSpec = new Float32Array(N_MELS * nF);
-  const re = new Float32Array(FFT_SZ);
-  const im = new Float32Array(FFT_SZ);
-
-  for (let t = 0; t < nF; t++) {
-    re.fill(0); im.fill(0);
-    for (let i = 0; i < N_FFT; i++) re[i] = padded[t * HOP + i] * hann[i];
-    fftRadix2(re, im);
-    for (let m = 0; m < N_MELS; m++) {
-      let s = 0;
-      const filt = melFb[m];
-      for (let k = 0; k < numBins; k++) s += filt[k] * (re[k]*re[k] + im[k]*im[k]);
-      melSpec[m * nF + t] = Math.max(s, 1e-10);
-    }
-  }
-  // AmplitudeToDb: 10 * log10(x), no top_db clipping (torchaudio default)
-  for (let i = 0; i < melSpec.length; i++) melSpec[i] = 10 * Math.log10(melSpec[i]);
-
-  // DCT-II → MFCC
-  const mfccRaw = new Float32Array(N_MFCC * nF);
-  for (let k = 0; k < N_MFCC; k++) {
-    const row = dct[k];
-    for (let t = 0; t < nF; t++) {
-      let s = 0;
-      for (let m = 0; m < N_MELS; m++) s += row[m] * melSpec[m * nF + t];
-      mfccRaw[k * nF + t] = s;
-    }
-  }
-  // Pad/truncate to TARGET frames
-  const out = new Float32Array(N_MFCC * TARGET);
-  const frames = Math.min(nF, TARGET);
-  for (let k = 0; k < N_MFCC; k++)
-    for (let t = 0; t < frames; t++)
-      out[k * TARGET + t] = mfccRaw[k * nF + t];
-  return out;
-}
-
-function resampleLinear(wave, fromSR, toSR) {
-  if (fromSR === toSR) return wave;
-  const ratio = fromSR / toSR;
-  const outLen = Math.round(wave.length / ratio);
-  const out = new Float32Array(outLen);
-  for (let i = 0; i < outLen; i++) {
-    const src = i * ratio;
-    const lo = Math.floor(src), hi = Math.min(lo + 1, wave.length - 1);
-    out[i] = wave[lo] + (wave[hi] - wave[lo]) * (src - lo);
-  }
-  return out;
-}
-
-// ═══════════════════════════════════════════════════
-// VISUALIZATIONS
-// ═══════════════════════════════════════════════════
-function drawWaveform(wave) {
-  const canvas = document.getElementById('waveCanvas');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  const W = rect.width, H = rect.height;
-  ctx.fillStyle = '#161b22'; ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = '#58a6ff'; ctx.lineWidth = 1; ctx.beginPath();
-  const step = wave.length / W;
-  for (let x = 0; x < W; x++) {
-    const y = H/2 - wave[Math.floor(x * step)] * (H/2 - 2);
-    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-}
-
-function drawMFCC(mfcc) {
-  const canvas = document.getElementById('mfccCanvas');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr; canvas.height = rect.height * dpr;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  const W = rect.width, H = rect.height;
-  const nM = DEMO.N_MFCC, nT = DEMO.TARGET;
-  let mn = Infinity, mx = -Infinity;
-  for (const v of mfcc) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  const range = mx - mn || 1;
-  const cW = W / nT, cH = H / nM;
-  for (let k = 0; k < nM; k++) {
-    for (let t = 0; t < nT; t++) {
-      const v = (mfcc[k * nT + t] - mn) / range;
-      // viridis-like colormap
-      const r = Math.round(68 + v * 187);
-      const g = Math.round(1 + v * 218);
-      const b = Math.round(84 + v * (-84 + v * 100 - 100));
-      ctx.fillStyle = `rgb(${r},${g},${Math.max(0,b)})`;
-      ctx.fillRect(t * cW, (nM - 1 - k) * cH, cW + 0.5, cH + 0.5);
-    }
-  }
-}
-
-function renderPreds(probs) {
-  const top5 = Array.from(probs.entries()).sort((a,b) => b[1] - a[1]).slice(0, 5);
-  const topWord = DEMO.classes[top5[0][0]];
-  const topConf = (top5[0][1] * 100).toFixed(1);
-
-  document.getElementById('topPred').innerHTML = `
-    <div class="top-pred-word">${topWord}</div>
-    <div class="top-pred-conf">${topConf}% confidence</div>`;
-
-  const barColors = ['#3fb950','#58a6ff','#bc8cff','#d29922','#8b949e'];
-  document.getElementById('predBars').innerHTML = top5.map(([idx, p], i) => `
-    <div class="pred-bar-row">
-      <div class="pred-lbl">${DEMO.classes[idx]}</div>
-      <div class="pred-track">
-        <div class="pred-fill" style="width:${(p*100).toFixed(1)}%;background:${barColors[i]}">
-          ${p > 0.08 ? (p*100).toFixed(1)+'%' : ''}
-        </div>
-      </div>
-      <div class="pred-pct">${(p*100).toFixed(1)}%</div>
-    </div>`).join('');
-}
-
-// ═══════════════════════════════════════════════════
-// ONNX INFERENCE
-// ═══════════════════════════════════════════════════
-async function loadOnnxModel(name) {
-  if (DEMO.sessions[name]) return DEMO.sessions[name];
-  setDemoStatus(`Loading ${name}…`, 'amber');
-  try {
-    ort.env.wasm.numThreads = 1; // safer for single-threaded WASM
-    const sess = await ort.InferenceSession.create(`./models/${name}.onnx`);
-    DEMO.sessions[name] = sess;
-    setDemoStatus(`${name} ready ✓`, 'green');
-    return sess;
-  } catch (e) {
-    setDemoStatus(`Failed to load ${name}: ${e.message}`, 'red');
-    throw e;
-  }
-}
-
-async function runOnnx(mfccData, modelName) {
-  const sess = await loadOnnxModel(modelName);
-  const tensor = new ort.Tensor('float32', mfccData, [1, 40, 101]);
-  const out = await sess.run({ mfcc: tensor });
-  const logits = Array.from(out.logits.data);
-  const maxL = Math.max(...logits);
-  const exp = logits.map(x => Math.exp(x - maxL));
-  const sum = exp.reduce((a, b) => a + b, 0);
-  return exp.map(x => x / sum);
-}
-
-function setDemoStatus(text, color) {
-  document.getElementById('modelStatusText').textContent = text;
-  document.getElementById('modelDot').className = `status-dot ${color}`;
-}
-
-// ═══════════════════════════════════════════════════
-// RECORDING + PIPELINE
-// ═══════════════════════════════════════════════════
-function selectDemoModel(name) {
-  DEMO.activeModel = name;
-  document.querySelectorAll('.model-sel-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['resnet','cnn','ds-cnn','bc-resnet'][i] === name);
-  });
-  // Preload model in background
-  loadOnnxModel(name).catch(() => {});
-}
-
-async function doRecord() {
-  if (DEMO.recording) return;
-  DEMO.recording = true;
-  const btn = document.getElementById('recordBtn');
-  const cd = document.getElementById('countdown');
-  btn.disabled = true;
-  btn.classList.add('recording');
-  btn.textContent = '🔴 Recording…';
-
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  } catch (e) {
-    setDemoStatus('Microphone access denied', 'red');
-    cd.textContent = 'Please allow microphone access and try again.';
-    btn.disabled = false; btn.classList.remove('recording');
-    btn.textContent = '🎤 Hold to record keyword (1 s)';
-    DEMO.recording = false; return;
-  }
-
-  const audioCtx = new AudioContext();
-  const actualSR = audioCtx.sampleRate;
-  const source = audioCtx.createMediaStreamSource(stream);
-  const bufSize = 4096;
-  const proc = audioCtx.createScriptProcessor(bufSize, 1, 1);
-  const chunks = [];
-
-  proc.onaudioprocess = e => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-  source.connect(proc);
-  proc.connect(audioCtx.destination);
-
-  // Countdown
-  for (let i = 3; i >= 1; i--) {
-    cd.textContent = `Recording… ${i}s`;
-    await new Promise(r => setTimeout(r, 333));
-  }
-  cd.textContent = '';
-
-  await new Promise(r => setTimeout(r, 1000));
-
-  stream.getTracks().forEach(t => t.stop());
-  source.disconnect(); proc.disconnect(); audioCtx.close();
-
-  // Assemble waveform
-  const raw = new Float32Array(chunks.reduce((s, c) => s + c.length, 0));
-  let off = 0;
-  for (const c of chunks) { raw.set(c, off); off += c.length; }
-
-  // Resample to 16 kHz and take 1 s
-  const wave16k = resampleLinear(raw, actualSR, DEMO.SR);
-  const wave = new Float32Array(DEMO.SR);
-  wave.set(wave16k.slice(0, DEMO.SR));
-
-  drawWaveform(wave);
-  setDemoStatus(`Running ${DEMO.activeModel}…`, 'amber');
-  cd.textContent = 'Computing MFCC & running inference…';
-
-  try {
-    const mfcc = computeMFCC(wave);
-    drawMFCC(mfcc);
-    const probs = await runOnnx(mfcc, DEMO.activeModel);
-    renderPreds(probs);
-    setDemoStatus(`${DEMO.activeModel} — inference done ✓`, 'green');
-    cd.textContent = '';
-  } catch (e) {
-    cd.textContent = `Error: ${e.message}`;
-    setDemoStatus('Inference error', 'red');
-  }
-
-  btn.disabled = false; btn.classList.remove('recording');
-  btn.textContent = '🎤 Record again';
-  DEMO.recording = false;
-}
-
-// Preload default model on page load
-window.addEventListener('load', () => {
-  loadOnnxModel('resnet').catch(() => {});
-});
 </script>
 </body>
 </html>
