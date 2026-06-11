@@ -276,7 +276,7 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
   <div class="hero-text">
     <h1>Keyword Spotting on<br><em>Embedded Hardware</em></h1>
     <p>
-      This page presents results from a bachelor's thesis investigating whether a complete keyword spotting pipeline —
+      This page presents results from a Studienarbeit investigating whether a complete keyword spotting pipeline —
       training on consumer GPU, deployment on ARM — can be built with standard PyTorch only.
     </p>
     <p>
@@ -384,7 +384,7 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
 <div class="section" id="selector">
   <div class="section-header">
     <div class="section-title">Model Selector</div>
-    <div class="section-sub">Set your deployment constraints — the tool applies the thesis findings to give a recommendation.</div>
+    <div class="section-sub">Set your deployment constraints — the tool applies the Studienarbeit findings to give a recommendation.</div>
   </div>
   <div class="selector-grid">
     <div class="selector-panel">
@@ -436,7 +436,7 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
 <div class="section" id="findings">
   <div class="section-header">
     <div class="section-title">Key Findings</div>
-    <div class="section-sub">The central conclusions from the thesis.</div>
+    <div class="section-sub">The central conclusions from the Studienarbeit.</div>
   </div>
   <div class="findings-grid">
     <div class="finding-card">
@@ -453,17 +453,20 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
       <div class="finding-title">INT8 Null Effect</div>
       <div class="finding-text">
         Dynamic INT8 quantization delivers <strong>no speed gains</strong> on any ARM platform.
-        All models fit in L2 cache (0.12–0.71 MB), so the dequantization overhead eats the bandwidth
-        advantage. The <em>only</em> benefit: INT8 suppresses ResNet tail outliers on Pi Zero.
+        <code>quantize_dynamic</code> only touches Linear layers — the conv-dominated models stay
+        FP32 where it counts. For the few quantized tensors (0.12–0.71 MB total) the per-pass
+        dequantization overhead eats any bandwidth advantage. The apparent ResNet tail-suppression
+        on Pi Zero <em>does not hold up</em> — it is run-dependent noise, not a real effect.
       </div>
     </div>
     <div class="finding-card">
       <div class="finding-icon">🌡️</div>
       <div class="finding-title">Thermal Stability</div>
       <div class="finding-text">
-        On Pi Zero 2W, DS-CNN and BC-ResNet both hit <strong>&gt;81°C</strong> peak temperature
-        under INT8, approaching the throttle threshold. ResNet INT8 stays at 74°C — the only
-        thermally safe, latency-stable configuration on the constrained platform.
+        On Pi Zero 2W, DS-CNN (81.1°C) and BC-ResNet (81.7°C) both cross the <strong>80°C
+        soft-throttle threshold</strong> under INT8, and CNN reaches 80.6°C. ResNet stays clear
+        at <strong>72.5°C (FP32) / 75.8°C (INT8)</strong> — the only thermally safe, latency-stable
+        choice, and the reason FP32 ResNet is the recommendation here.
       </div>
     </div>
     <div class="finding-card">
@@ -490,7 +493,7 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
       <div class="finding-text">
         The main finding is as much a <strong>framework finding as an architecture finding</strong>.
         PyTorch eager-mode on Linux/ARM adds per-layer overhead that scales with layer count.
-        For production use, TFLite or ONNX Runtime (or CMSIS-NN on Cortex-M) are the next step.
+        For production use, TFLite or ONNX Runtime (or CMSIS-NN on Cortex-M) are recommended in the Studienarbeit.
       </div>
     </div>
   </div>
@@ -553,7 +556,7 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
   <div class="dl-grid">
     <div class="dl-card">
       <div class="dl-model" style="color:var(--blue)">ResNet</div>
-      <div class="dl-info">112k params · 17 layers<br>FP32: 12.95 ms on Pi 4B<br>INT8: 29.78 ms on Pi Zero<br><strong style="color:var(--green)">✓ Thesis recommendation</strong></div>
+      <div class="dl-info">112k params · 17 layers<br>FP32: 12.95 ms on Pi 4B<br>FP32: 28.50 ms on Pi Zero<br><strong style="color:var(--green)">✓ Studienarbeit recommendation (FP32, both boards)</strong></div>
       <a class="dl-btn primary" href="models/resnet.onnx" download>↓ ONNX (464 KB)</a>
       <a class="dl-btn" href="models/resnet.pt" download>↓ PyTorch .pt (1.3 MB)</a>
     </div>
@@ -584,7 +587,7 @@ canvas.demo-canvas { width: 100%; border-radius: 6px; display: block; background
 </div>
 
 <footer>
-  Bachelor's thesis · DHBW · 2026
+  Studienarbeit · DHBW · 2026
   <span class="sep">·</span>
   4 architectures benchmarked across 5 × 958-sample runs on Raspberry Pi hardware
   <span class="sep">·</span>
@@ -604,21 +607,21 @@ const MODEL_KEYS = { 'ResNet': 'resnet', 'DS-CNN': 'ds-cnn', 'CNN': 'cnn', 'BC-R
 
 const DATA = {
   pi4: {
-    'ResNet':     { params: 112356, fp32: { inf_mean:12.95, inf_std:0.36, p50:16.12, p95:17.19, p99:17.33, max:19.09, max_of_max:23.38, acc:94.36, temp:54.82, cpu:92.64 }, int8: { inf_mean:16.04, inf_std:3.21, p50:19.85, p95:28.36, p99:34.84, max:43.46, max_of_max:51.25, acc:94.36, temp:55.42, cpu:95.16 } },
-    'DS-CNN':     { params: 142280, fp32: { inf_mean:32.17, inf_std:0.53, p50:35.25, p95:36.39, p99:36.71, max:38.14, max_of_max:39.07, acc:94.47, temp:61.06, cpu:95.42 }, int8: { inf_mean:33.91, inf_std:2.04, p50:38.51, p95:44.22, p99:48.68, max:56.29, max_of_max:59.23, acc:94.47, temp:61.64, cpu:98.08 } },
-    'CNN':        { params: 185412, fp32: { inf_mean:15.97, inf_std:0.40, p50:19.16, p95:20.25, p99:20.43, max:22.76, max_of_max:26.20, acc:87.16, temp:59.50, cpu:93.26 }, int8: { inf_mean:26.35, inf_std:5.70, p50:29.38, p95:44.09, p99:49.78, max:56.03, max_of_max:57.70, acc:87.16, temp:58.90, cpu:95.08 } },
-    'BC-ResNet':  { params:  30012, fp32: { inf_mean:44.70, inf_std:2.02, p50:47.47, p95:52.99, p99:56.87, max:62.37, max_of_max:64.99, acc:94.78, temp:60.70, cpu:78.68 }, int8: { inf_mean:48.97, inf_std:4.88, p50:52.12, p95:64.28, p99:70.90, max:79.34, max_of_max:83.75, acc:94.78, temp:60.98, cpu:80.12 } },
+    'ResNet':     { params: 112356, fp32: { inf_mean:12.95, inf_std:0.36, p50:12.82, p95:13.89, p99:14.02, max:16.45, max_of_max:16.45, acc:94.36, temp:54.82, cpu:92.64 }, int8: { inf_mean:16.04, inf_std:3.21, p50:15.27, p95:21.97, p99:27.54, max:48.02, max_of_max:48.02, acc:94.57, temp:55.42, cpu:95.16 } },
+    'DS-CNN':     { params: 142280, fp32: { inf_mean:32.17, inf_std:0.53, p50:31.86, p95:33.00, p99:33.30, max:35.45, max_of_max:35.45, acc:94.47, temp:61.06, cpu:95.42 }, int8: { inf_mean:33.91, inf_std:2.04, p50:33.59, p95:37.90, p99:41.04, max:52.47, max_of_max:52.47, acc:94.36, temp:61.64, cpu:98.08 } },
+    'CNN':        { params: 185412, fp32: { inf_mean:15.97, inf_std:0.40, p50:15.82, p95:16.90, p99:17.08, max:22.91, max_of_max:22.91, acc:87.16, temp:59.50, cpu:93.26 }, int8: { inf_mean:26.35, inf_std:5.70, p50:24.43, p95:37.15, p99:41.84, max:50.71, max_of_max:50.71, acc:87.37, temp:58.90, cpu:95.08 } },
+    'BC-ResNet':  { params:  30012, fp32: { inf_mean:44.70, inf_std:2.02, p50:43.88, p95:49.33, p99:53.52, max:61.16, max_of_max:61.16, acc:94.78, temp:60.70, cpu:78.68 }, int8: { inf_mean:48.97, inf_std:4.88, p50:47.40, p95:59.45, p99:66.07, max:80.45, max_of_max:80.45, acc:94.89, temp:60.98, cpu:80.12 } },
   },
   pi_zero: {
-    'ResNet':     { params: 112356, fp32: { inf_mean:28.50, inf_std:5.62, p50:34.84, p95:37.30, p99:62.49, max:123.90, max_of_max:221.60, acc:94.36, temp:70.80, cpu:97.16 }, int8: { inf_mean:29.78, inf_std:2.49, p50:39.88, p95:46.63, p99:52.52, max:72.02, max_of_max:92.88, acc:94.36, temp:74.36, cpu:98.68 } },
-    'DS-CNN':     { params: 142280, fp32: { inf_mean:71.39, inf_std:1.41, p50:79.29, p95:80.56, p99:82.39, max:107.96, max_of_max:179.55, acc:94.47, temp:78.66, cpu:100.0 }, int8: { inf_mean:72.70, inf_std:2.08, p50:83.91, p95:87.73, p99:90.55, max:97.72, max_of_max:101.62, acc:94.47, temp:81.10, cpu:100.0 } },
-    'CNN':        { params: 185412, fp32: { inf_mean:47.21, inf_std:3.09, p50:54.82, p95:56.57, p99:73.77, max:86.51, max_of_max:152.59, acc:87.16, temp:76.32, cpu:99.10 }, int8: { inf_mean:56.09, inf_std:4.82, p50:64.36, p95:77.17, p99:85.41, max:114.11, max_of_max:151.80, acc:87.16, temp:79.84, cpu:100.0 } },
-    'BC-ResNet':  { params:  30012, fp32: { inf_mean:94.29, inf_std:5.15, p50:101.22, p95:105.41, p99:126.14, max:160.65, max_of_max:328.04, acc:94.78, temp:78.88, cpu:91.16 }, int8: { inf_mean:95.31, inf_std:4.35, p50:105.35, p95:111.56, p99:118.08, max:171.25, max_of_max:339.97, acc:94.78, temp:81.22, cpu:92.48 } },
+    'ResNet':     { params: 112356, fp32: { inf_mean:28.50, inf_std:5.62, p50:27.43, p95:29.88, p99:47.56, max:202.21, max_of_max:202.21, acc:94.36, temp:72.5, cpu:97.16 }, int8: { inf_mean:29.78, inf_std:2.49, p50:28.51, p95:34.28, p99:37.92, max:68.82, max_of_max:68.82, acc:94.57, temp:75.8, cpu:98.68 } },
+    'DS-CNN':     { params: 142280, fp32: { inf_mean:71.39, inf_std:1.41, p50:71.84, p95:73.12, p99:74.93, max:86.67, max_of_max:86.67, acc:94.47, temp:79.0, cpu:100.0 }, int8: { inf_mean:72.70, inf_std:2.08, p50:72.51, p95:76.27, p99:79.12, max:86.14, max_of_max:86.14, acc:94.36, temp:81.1, cpu:100.0 } },
+    'CNN':        { params: 185412, fp32: { inf_mean:47.21, inf_std:3.09, p50:46.40, p95:49.01, p99:63.74, max:136.27, max_of_max:136.27, acc:87.16, temp:77.4, cpu:99.10 }, int8: { inf_mean:56.09, inf_std:4.82, p50:54.44, p95:64.83, p99:69.54, max:122.77, max_of_max:122.77, acc:87.37, temp:80.6, cpu:100.0 } },
+    'BC-ResNet':  { params:  30012, fp32: { inf_mean:94.29, inf_std:5.15, p50:93.72, p95:97.55, p99:113.65, max:309.20, max_of_max:309.20, acc:94.78, temp:79.0, cpu:91.16 }, int8: { inf_mean:95.31, inf_std:4.35, p50:94.81, p95:99.91, p99:105.73, max:317.44, max_of_max:317.44, acc:94.89, temp:81.7, cpu:92.48 } },
   }
 };
 
-// Recommended: ResNet FP32 on Pi4, ResNet INT8 on PiZero
-const RECOMMENDED = { pi4: { fp32: 'ResNet', int8: 'ResNet' }, pi_zero: { fp32: null, int8: 'ResNet' } };
+// Recommended: ResNet FP32 on both boards — INT8 brings no benefit on this conv-dominated model
+const RECOMMENDED = { pi4: { fp32: 'ResNet', int8: 'ResNet' }, pi_zero: { fp32: 'ResNet', int8: null } };
 
 const TRAIN = {
   'BC-ResNet': [27.55,59.6,71.53,84.51,86.28,88.1,89.42,90.57,90.33,91.2,91.38,92.08,92.11,91.86,91.45,92.43,92.81,93.4,92.9,93.12,93.38,93.88,93.85,93.98,93.97,94.13,93.94,94.23,94.16,94.3,94.4,94.07,93.93,94.43,94.34,94.49,94.43,94.22,94.51,94.59,94.42,94.62,94.72,94.64,94.71,93.95,94.48,94.68,94.7,94.71,94.71,94.73,94.74,94.82,94.74,94.73,94.65,94.69,94.73,94.69],
